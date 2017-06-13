@@ -1,0 +1,391 @@
+---
+title: "White Wine Quality"
+author: "sicheng Zhou"
+date: "3/18/2017"
+output: html_document
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+library(ggplot2)
+library(dplyr)
+library(grid)
+library(gridExtra)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_Data}
+# Load the Data
+wqw <- read.csv('wineQualityWhites.csv') 
+```
+
+The dataset  is presented by Cortez et al. (see reference below),which contains 
+about 5,000 white wines with 11 variables on quantifying the chemical properties 
+of each wine. At least 3 wine experts rated the quality of each wine, providing 
+a rating between 0 (very bad) and 10 (very excellent).
+
+P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine 
+preferences by data mining from physicochemical properties. In Decision Support 
+Systems, Elsevier, 47(4):547-553. ISSN: 0167-9236.
+
+# Univariate Analysis and Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Structure}
+wqw$X <- NULL
+summary(wqw)
+str(wqw)
+```
+
+### What is the structure of your dataset?
+The dataset contains 13 variables for 4898 observations. The 13 variables 
+include the index variable called 'X', 'quality' for rate quality rating and 11 
+chemical features for the white wines. The quality variable is an integer which 
+has a min 3.0 and max 9.0, with a median 6.0 and mean 5.878.All the chemical 
+feature variables are floating numbers. They are of different unit and therefore 
+lie in widely different range. For example, the chlorides variable has a small 
+range from 0.009 to 0.346, while the total.sulfur.dioxide variable has a large 
+range from 8.0 to 440.0.There are some outliers for some features such as 
+residual sugar, chlorides.
+
+### What is/are the main feature(s) of interest in your dataset?
+The features interest me are the quality and alcohol. I expected that alcohol 
+and some combination of other variables can be used to build a predictive model 
+to the wine quality.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+Features such as residual sugar, citric acid, chlorides and pH may also help.
+
+### Did you create any new variables from existing variables in the dataset?
+I created an ordered factor for quality from its orignal integer value. 
+Furthermore, I grouped the wine quality into 3 buckets [(3,4,5), (6), (7,8,9)] 
+so that we got more samples in each bucket for better analysis.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, New_variables_for_quality}
+wqw$quality.ordered <- as.ordered(wqw$quality)
+wqw$quality.bucketed <- cut(wqw$quality, c(2, 5, 6, 10))
+```
+
+### Of the features you investigated, were there any unusual distributions? 
+I made histograms for quality, density, citric acid, chlorides, pH, fixed 
+acidity, sulphates and free sulfur dioxide. Outliers were removed.
+
+###Histograms for quality, alcohoal, citric acid and chlorides.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots1}
+p1 <- ggplot(aes(x=quality),data = wqw) + geom_histogram(binwidth = 0.5)
+p2 <- ggplot(aes(x=density),data = wqw) + geom_histogram(binwidth = 0.0003)+
+    scale_x_continuous(limits = c(0.986,1.005))
+p3 <- ggplot(aes(x=citric.acid),data = wqw) + geom_histogram(binwidth = 0.01)+
+    scale_x_continuous(limits = c(0,0.75))
+p4 <- ggplot(aes(x=chlorides),data = wqw) + geom_histogram(binwidth = 0.001)+
+    scale_x_continuous(limits = c(0,0.085))
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+###Histograms for pH, fixed acidity, sulphates and free sulfur dioxide
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots2}
+p1 <- ggplot(aes(x=pH),data = wqw) + geom_histogram(binwidth = 0.02)
+p2 <- ggplot(aes(x=fixed.acidity),data = wqw) + geom_histogram(binwidth = 0.1)+
+    scale_x_continuous(limits = c(4,10))
+p3 <- ggplot(aes(x=sulphates),data = wqw) + geom_histogram(binwidth = 0.02)+
+    scale_x_continuous(limits = c(0.2,0.9))
+p4 <- ggplot(aes(x=free.sulfur.dioxide),data = wqw) + geom_histogram(binwidth=           1)+ scale_x_continuous(limits = c(0,87.5))
+p5 <- ggplot(aes(x=quality.bucketed),data=wqw)+
+    geom_histogram(binwidth=1,stat="count")
+
+grid.arrange(p1, p2, p3, p4, p5,ncol = 2)
+```
+
+After trying different bin size, I found that the density is little bit positive skewed.Others are basically in normal distribution,except for some outliers, 
+like the long tail in chlorides, which has been removed. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots3}
+ggplot(aes(x = alcohol), data=wqw) + 
+    geom_histogram(aes(y = ..density..),color="green",fill="blue",binwidth=0.1)+
+    ggtitle("Density of alcohol")+
+    geom_density(size=1, color="red")
+```
+
+In this plot I draw the histogram and density of alcohol level. The binwidth of 
+the histogram is set to 0.1, and the density is estimated with a Gaussian
+kernel with default adjust=1.From the plot we see that the alcohol level in the sample set is positive skewed. More specifically,there are more wines with lower alcohol level (9 to 10) than those with higher alcohol level (11 to 12).
+
+# Bivariate Plots Section
+
+### What was the strongest relationship you found?
+Groups of box plots were made for density, pH, citric acid and alcohol level for
+each different quality. I found that there is a clear dependency between alcohol
+and quality, the alcohol level tends to be high for both low quality and high 
+quality wines, but low for medium quality wines. This is a very interesting 
+observation.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots1}
+ggplot(aes(x= quality.ordered, y = alcohol), data=wqw) +
+  geom_boxplot() + xlab("Quality") + coord_flip() +
+  ggtitle("Quality v.s. Alcohol")
+
+cat("Correlation: ", cor(wqw$alcohol, wqw$quality))
+```
+
+We can see that the highest quality wine (9) has quite concentrated 
+alcohol level, in other words, the variance of alcohol level for wine of this 
+quality is low. Later I realized that this is because there are very few samples 
+(5 in total) with quality score being 9, and therefore the small variance could 
+partly be attributed to lack of data.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,function_10_90_quantile}
+q90 <- function(x) {quantile(x,probs=0.90)}
+q10 <- function(x) {quantile(x,probs=0.10)}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots2}
+ggplot(aes(x = factor(quality), y = alcohol), data=wqw) + 
+  geom_point(alpha = 0.5,position = position_jitter(width = 0.3, height = 0.2))+
+    geom_boxplot(alpha = 0.5, color = "red", outlier.color = NA, coef = 4/5) +
+  stat_summary(fun.y = median, geom='crossbar', ymin=0, ymax=0)+
+  stat_summary(fun.y = q90, geom='crossbar', ymin=0, ymax=0) +
+  stat_summary(fun.y = q10, geom='crossbar', ymin=0, ymax=0) +
+  coord_flip() +
+  ggtitle("Quality v.s. Alcohol")+
+    ylab('alcohol (% by volume)')+ xlab("quality")
+```
+
+I made this plot to better shows the quality of wine v.s. the alcohol level. A scatter plot with alpha=0.5 plus some jittering to show visualize the actual distribution of the alcohol and different quality level. In addition, the 10% 
+median and 90% quality bars and boxplot geoms were placed for better visualizing 
+the general trend of data.From the exploration above, it was found that the 
+alcohol is the feature with largest correlation (0.435) to wine quality amoung 
+all the given features. We can see that for wine samples of quality 5 or larger, 
+the quality gets better as the median alcohol level grows. However, we also see 
+that low quality wines (3 and 4) also tends to have higher alcohol level.This observation is very interesting for me, it also indicates there should be other variables that influence the quality.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots3}
+ggplot(aes(x= quality.ordered, y = citric.acid), data=wqw) +
+  geom_boxplot() + xlab("Quality") + coord_flip() +
+  ggtitle("Quality v.s. Citric acid")+ ylab('Citric acid')
+cat("Correlation: ", cor(wqw$citric.acid, wqw$quality))
+```
+
+This is the blox plot for quality and citric acid, we can see that there's no 
+relationship between quality and citric acid.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots4}
+ggplot(aes(x= quality.ordered, y = pH), data=wqw) +
+  geom_boxplot() + xlab("Quality") + coord_flip() +
+  ggtitle("Quality v.s. pH")
+cat("Correlation: ", cor(wqw$pH, wqw$quality))
+```
+
+This is the blox plot for quality and pH, we can see that except for the lowest 
+quality group, the higher quality have slightly higher pH.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots5}
+ggplot(aes(x= quality.ordered, y = density), data=wqw) +
+  geom_boxplot() + xlab("quality") + coord_flip() +
+    scale_y_continuous(limits = c(0.985,1))+
+  ggtitle("Quality v.s. Density") 
+cat("Correlation: ", cor(wqw$density, wqw$quality))
+```
+
+This is the blox plot for quality and density, we can see that wines with higher density have higher density. That's make sense since density is inverse to 
+alcohol level since alcohol is lighter than water.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots6}
+ggplot(aes(x= density, y = alcohol), data=wqw) + 
+  geom_point()+
+  xlab('density') + 
+  ggtitle("Alcohol v.s. Density") +
+  scale_x_continuous(limits = c(0.985,quantile(wqw$density,0.99)))
+   
+cat("Correlation: ", cor(wqw$density, wqw$alcohol))
+```
+
+This is the scatter plot for density and alcohol, I made this plot to verify the density is inverse to alcohol level.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots7}
+ggplot(aes(x= quality.ordered, y = fixed.acidity), data=wqw) +
+  geom_boxplot() + xlab("quality") + coord_flip() +
+  ggtitle("Quality v.s. Fixed acidity")
+cat("Correlation: ", cor(wqw$fixed.acidity, wqw$quality))
+```
+
+This is the blox plot for quality and fixed acidity level, we can see that 
+there's no relationship between quality and fixed acidity. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots8}
+ggplot(aes(x= quality.ordered, y = sulphates), data=wqw) +
+  geom_boxplot() + xlab("quality") + coord_flip() +
+  ggtitle("Quality v.s. Sulphates")
+cat("Correlation: ", cor(wqw$sulphates, wqw$quality))
+```
+
+This is the blox plot for quality and sulphates level, we can see that 
+there's no relationship between quality and sulfates level. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots9}
+ggplot(aes(x= citric.acid, y = fixed.acidity), data=wqw) + 
+  geom_point()+ ggtitle("Citric acid v.s. Fixed acidity") 
+cat("Correlation: ", cor(wqw$citric.acid, wqw$fixed.acidity))
+```
+
+This is the scatter plot for citric acid and fixed acidity. We can see there's a 
+slight correlation between these two variables, that make sense since the acid 
+should related to acidity.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots10}
+ggplot(aes(x= sulphates, y = free.sulfur.dioxide), data=wqw) + 
+  geom_point()+ggtitle("Sulphates v.s. Free sulfur dioxide") 
+   
+cat("Correlation: ", cor(wqw$sulphates, wqw$free.sulfur.dioxide))
+```
+
+This is the scatter plot for sulphates and free sulfur dioxide. We can see there 
+is no correlation between the two variables.I'm not very familiar with 
+chemistry, seems sulphates and sulfur dioxide are two independent substances.
+
+# Multivariate Plots and Analysis Section
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+I plotted the chlorides with respect to alcohol in the figure below, and grouped 
+and colored by different wine quality. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots1}
+ggplot(aes(x = 0.1 * round(alcohol/0.1), y = chlorides), data =wqw) +
+  geom_point(aes(color = wqw$quality.bucketed), alpha = 1/2) + 
+    scale_y_continuous(limits = c(0,0.08))+
+  geom_smooth()+ xlab('alcohol (% by volume)')+ ylab('chloreides (g/dm^3)') +
+  ggtitle("Chlorides v.s. Alcohol, colored by Quality") + labs(color = "Quality bucket") + theme_dark() + 
+guides(colour = guide_legend(override.aes = list(alpha = 1)))
+```
+
+From this plot we can see that higher quality group tends to have higher alcohol level and lower chlorides level. I also added the scatter plot of all data 
+points, and we can see the variation of chlorides given alcohol is quite large, 
+but the general trend is visible: low quality wines (red points) tend to have 
+larger chlorides than high quality wines (blue points).
+
+Below is a scatter plot which shows the relationship between density, alcohol  
+and quality. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Multivariate_Plots2}
+ggplot(aes(x = 0.2 * round(alcohol/0.2), y = density), data = wqw) +
+  geom_point(aes(color = wqw$quality.bucketed), alpha = 1/2,
+             position = position_jitter(width = 0.1)) +
+  xlab("alcohol") + ylim(0.985, 1.005) +
+  ggtitle("Density v.s. Alcohol, colored by Quality") + labs(color = "Quality bucket")+theme_dark()
+```
+
+It is very clear to see that density is inversely proportional to 
+alcohol, and the red points(quality below 5) are mainly locating in low alcohol 
+area, blue points(quality above six) are  mainly locating in high alcohol area.
+
+### Were there any interesting or surprising interactions between features?
+I found that fixed acidity is indenpenent with volatile acidity, I expected that 
+they should be negatively related since the acidity can be either volatile or 
+fixed. And we can also see that lower quality group tends to have higher 
+volatile acidity level.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots3}
+ggplot(aes(x = 0.05 * round(fixed.acidity/0.05), y = volatile.acidity, color = quality.bucketed), data =wqw) +
+  geom_point( alpha = 1/2) +
+    geom_smooth(se = F) + scale_y_continuous(limits = c(0.05,0.7))+ scale_x_continuous(limits = c(3,12))+
+  xlab("fixed acidity") +ylab("volatile acidity") +
+  ggtitle("Volatile acidity v.s. Fixed acidity, colored by Quality")+
+    theme_dark()
+```
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_One}
+ggplot(aes(x = alcohol), data=wqw) + geom_histogram(aes(y = ..density..),color="green",fill="blue",binwidth=0.1) +
+    ggtitle("Density of alcohol")+ geom_density(size=1, color="red")+
+    xlab('alcohol (% by volume)')
+```
+
+### Description One
+
+In this plot I draw the histogram and density of alcohol level. The binwidth of 
+the histogram is set to 0.1, and the density is estimated with a Gaussian
+kernel with default adjust=1.From the plot we see that the alcohol level in the sample set is positive skewed. More specifically,there are more wines with lower alcohol level (9 to 10) than those with higher alcohol level (11 to 12).
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE,functions_10_90_quantile}
+q90 <- function(x) {quantile(x,probs=0.90)}
+q10 <- function(x) {quantile(x,probs=0.10)}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+ggplot(aes(x = factor(quality), y = alcohol), data=wqw) + 
+  geom_point(alpha = 0.5,position = position_jitter(width = 0.3, height = 0.2))+
+    geom_boxplot(alpha = 0.5, color = "red", outlier.color = NA, coef = 4/5) +
+  stat_summary(fun.y = median, geom='crossbar', ymin=0, ymax=0)+
+  stat_summary(fun.y = q90, geom='crossbar', ymin=0, ymax=0) +
+  stat_summary(fun.y = q10, geom='crossbar', ymin=0, ymax=0) +
+  coord_flip() +
+  ggtitle("Quality v.s. Alcohol")+
+    ylab('alcohol (% by volume)')+ xlab("quality")
+```
+
+### Description Two
+
+This plot shows the quality of wine v.s. the alcohol level. A scatter plot with alpha=0.5 plus some jittering to show visualize the actual distribution of the alcohol and different quality level. In addition, the 10%m median and 90% 
+quality bars and boxplot geoms were placed for better visualizing the general 
+trend of data.From the exploration above, it was found that the alcohol is the feature with largest correlation (0.435) to wine quality amoung all the given features. We can see that for wine samples of quality 5 or larger, the quality 
+gets better as the median alcohol level grows. However, we also see that low 
+quality wines (3 and 4) also tends to have higher alcohol level.This observation
+is very interesting for me, it also indicates there should be other variables 
+that influence the quality.
+
+### Plot Three
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Three}
+ggplot(aes(x = 0.1 * round(alcohol/0.1), y = chlorides), data =wqw) +
+  geom_point(aes(color = wqw$quality.bucketed), alpha = 1/2) + 
+    scale_y_continuous(limits = c(0,0.08))+
+  geom_smooth()+ xlab('alcohol (% by volume)')+ ylab('chloreides (g/dm^3)') +
+  ggtitle("Chlorides v.s. Alcohol, colored by Quality") + labs(color = "Quality bucket") + theme_dark() + 
+guides(colour = guide_legend(override.aes = list(alpha = 1)))
+```
+
+### Description Three
+
+In this plot I made a scatter plot of alcohol versus chlorides, colored by the 
+wine quality. From this plot we can see some distinct phenomenons of combining 
+to different features to make better prediction about the wine quality. It is 
+clear that wine with higher alcohol tends to have higher quality. And we can 
+also see that chlorides level also influences the wine quality. The chlorides 
+level for the higher quality group (blue) is likely below 0.05. 
+
+# Reflection
+
+I have some reflections for this project:
+
+* Having a reasonable size for the dataset is important. When there are too few number of data point, the statistical analysis might be less reliable. For 
+example, there are only 5 samples of quality 9 wine, and a box plot or quantile computed from this 5 samples might not be as robust as the one that is from, say 
+500 samples.
+
+* Understanding the range and distribution of data is very important. It is 
+usually very helpful to first plot the histogram of the variables in order to 
+get a sense of how well they are distributed, and decide a reasonable axis scale
+to present them. Without such a step, the result visualization can be very 
+skewed and hard to interpret.
+
+* Some unexpected results is not necessarily wrong; they might just be the fact 
+that we overlooked before. For example, I expect conditioned on wine quality, 
+the curves of one physical/chemical property against another should be distinguishable from another. This however is not true, as discovered from 
+analysis, those relationships are often governed by physical/chemical laws and therefore not very dependent on human tastes.
+
+* For future exploration for this dataset, a math model (can be linear or non-linear) can be built to predict the quality, I believe that 11 features and nearly 5000 data can lead to a very good model.
